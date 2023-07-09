@@ -31,7 +31,6 @@ String serverName = "http://10.0.13.23:80/getpicture";
 void setup()
 {
     
-  //printf(“Free PSRAM : %d\n”, ESP.getFreePsram());
   initWiFi();
   printf("\r\n");
   
@@ -330,17 +329,7 @@ printf("open file for reading\n");
 file = LITTLEFS.open("/test", FILE_READ);
 printf("read file and copy it to blackimage\n");
 file.read(BlackImage, file.size());  
-
 file.close();
-//printf("size of the variable..............: %i\n", sizeof(wbuffer));
-//printf("content of the variable..............: \n%s\n", rbuffer);
-
-
-//memcpy(storedPassword, readFile(SPIFFS, "/inputPassword.txt").c_str(), strlen(readFile(SPIFFS, "/inputPassword.txt").c_str())+1); 
-
-//memcpy(BlackImage, wbuffer, 2048); // hat funktioniert zeigt ca. 1/3 vom gesamtbild!
-//memcpy(BlackImage, readFile(SPIFFS, "/test").c_str(), strlen(readFile(SPIFFS, "/test").c_str())+1); 
-
 
 
 Paint_DrawBitMap(BlackImage); //funktioniert
@@ -365,13 +354,9 @@ Paint_DrawBitMap(BlackImage); //funktioniert
 /* The main loop -------------------------------------------------------------*/
 void loop()
 {
-/*test*/
-
-
  String filename = "/picture";
-
    
-  //SPIFFS.remove(filename);
+  SPIFFS.remove("picture2");
     //fs::File f = LittleFS.open(filename, "w+");
     //File f = little.open(filename);
     File f = SPIFFS.open(filename , "w+");
@@ -388,9 +373,7 @@ void loop()
   long totalSize = 0;
   boolean chone = 1;
   // configure server and url update based on your URL
-  //http.begin("http://www.meteosatonline.it/riduce/nuova/ultima.jpg");  //update based on your URL
   http.begin("http://10.0.13.23/getpicture");
-  //http.begin("http://10.16.10.11:8980/tempgr/ac/BaboonL.jpg");
   // start connection and send HTTP header
   long httpCode = http.GET();
 
@@ -437,43 +420,6 @@ void loop()
     printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
   }
     f.close();
-
-/*load file and store as picture variable
-************************************************************************************************************************************************
-*/
-printf("Loading file into variable:...\n");
-
-
-
-
-
-
-
-
-
-
-//printf("Size of the variable: %i\n", sizeof(testpicture));
-
-//x.close();
-//free(testpicture);
-
-//Paint_DrawBitMap(buf);
-
-
-printf("done loading file into variable\n");
-
-
-
-
-
-
-//printf("size of the variable:\n %d", sizeof(image2in13));
-/*end picture
-*/
-
-  //String str = (char*)gImage_2in13_test;
-  //String new_str *ccp = str;
-  //printf(str.c_str());
 
   http.end();
   yield();
