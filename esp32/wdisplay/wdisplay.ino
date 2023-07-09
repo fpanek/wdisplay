@@ -326,7 +326,7 @@ file.close();
 
 
 printf("open file for reading\n");
-file = LITTLEFS.open("/test", FILE_READ);
+file = LITTLEFS.open("/picture", FILE_READ);
 printf("read file and copy it to blackimage\n");
 file.read(BlackImage, file.size());  
 file.close();
@@ -356,9 +356,9 @@ void loop()
 {
  String filename = "/picture";
    
-  SPIFFS.remove("picture2");
-    //fs::File f = LittleFS.open(filename, "w+");
-    //File f = little.open(filename);
+  //SPIFFS.remove("/picture2"); //remove function if required
+
+
     File f = SPIFFS.open(filename , "w+");
     if (!f)
     {
@@ -400,7 +400,7 @@ void loop()
         size_t size = stream->available();
         if (size) {
 
-          int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+          unsigned char c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
           f.write(buff,c);
           //memcpy (gImage_2in13_test + totalSize, buff, c);
           totalSize = totalSize + c;
@@ -428,7 +428,25 @@ void loop()
   listDir(SPIFFS, "/", 0);
   printf("list directory done: \r\n");
 
-  delay(10000);  //Send a request every 10 seconds
+/*showing file content..*/
+
+
+File file = LITTLEFS.open("/picture", FILE_READ);
+unsigned char buffer[64];
+printf("start reading file..\n");
+while (file.available()) {
+ int l = file.readBytesUntil('\n', buffer, sizeof(buffer)-1);
+ buffer[l] = 0;
+ //Serial.println(buffer);
+}
+file.close();
+//printf("Conent of variable:\n %s", buffer);
+
+
+/*showing file content..*/
+
+
+  delay(10000);  //Send a request every 10  seconds
 
   }
 
