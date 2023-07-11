@@ -16,13 +16,15 @@
 const char *ssid = "wdisplay";
 const char *password = "wdisplay";
 
+#define GPIO_ADC_Battery 36
 
-String serverName = "http://10.0.13.23:80/getpicture";
 
 #define FORMAT_LITTLEFS_IF_FAILED true
 
 char uid [32] = {}; 
+float batteryLevel;
 
+String serverIP = "http://10.0.13.23";
 
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  20        /* Time ESP32 will go to sleep (in seconds) */
@@ -31,6 +33,7 @@ char uid [32] = {};
 /* Entry point ----------------------------------------------------------------*/
 void setup() {
   /***initialization***/
+  pinMode(GPIO_ADC_Battery, INPUT); //It is necessary to declare the input pin
   initializeLittleFS();
   print_wakeup_reason();
   DEV_Module_Init();
@@ -39,6 +42,9 @@ void setup() {
   initWiFi();
   /***initialization***/
 
+
+  measureBatteryLevel();
+
   /***transfer and display image***/
   getPictureFromServer();
   WiFi.disconnect(true); //measure improvement?
@@ -46,6 +52,7 @@ void setup() {
   clearScreen();
   printPicture();
   /***transfer and display image***/
+
 
   //Send ESP to sleep
   printf("Send ESP to sleep\r\n");
@@ -87,6 +94,19 @@ void initWiFi() {
   printf("\r\nConnected to WiFI - my IP: %s", WiFi.localIP().toString().c_str());
   printf("\r\n");
 
+}
+
+void measureBatteryLevel(){
+  /***batteryLevel*/
+  float lowerLevel = 3.4;
+  float range = 0.8;  //4,2 = max, 3,4 min -->0.8
+  batteryLevel = analogReadMilliVolts(GPIO_ADC_Battery);
+  batteryLevel = (batteryLevel * 3); // analogRead = 1/3 of the actual battery voltage (https://www.waveshare.com/wiki/2.13inch_e-Paper_Cloud_Module)
+  batteryLevel = (batteryLevel - lowerLevel / range ) * 100; //batterylevel in percent
+  if(batteryLevel >= 100){
+    batteryLevel = 100;
+  }
+  printf("currnet battery voltage: %f\r\n", batteryLevel);
 }
 
 void showFileContent() {
@@ -157,7 +177,8 @@ void getPictureFromServer() {
   long totalSize = 0;
   boolean chone = 1;
   // configure server and url update based on your URL
-  http.begin("http://10.0.13.23/getpicture");
+  String serverPath = serverIP + "/getpicture" + "?uid=" + uid + "?batteryLevel=" +  String(batteryLevel, 0);
+  http.begin(serverPath);
   // start connection and send HTTP header
   long httpCode = http.GET();
 
