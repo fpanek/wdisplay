@@ -2,7 +2,6 @@
 #include "DEV_Config.h"
 #include "EPD.h"
 #include "GUI_Paint.h"
-//#include "imagedata.h"
 #include <stdlib.h>
 
 
@@ -25,26 +24,52 @@ String serverName = "http://10.0.13.23:80/getpicture";
 char uid [32] = {}; 
 
 
+#define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  20        /* Time ESP32 will go to sleep (in seconds) */
+
+
 /* Entry point ----------------------------------------------------------------*/
 void setup() {
   initWiFi();
+  print_wakeup_reason();
   DEV_Module_Init();
   EPD_2in13_V3_Init();
   sprintf(uid, "%012llx" ,ESP.getEfuseMac()); //set unique id 
-}
 
-/* The main loop -------------------------------------------------------------*/
-void loop() {
-  getPictureFromServer();
+  //test
+    getPictureFromServer();
   clearScreen();
   printPicture();
   printf("Send ESP to sleep\r\n");
   EPD_2in13_V3_Sleep();
-  delay(10000);  
-  printf("wake up ESP again..\r\n");
-  EPD_2in13_V3_Init();
+  //delay(10000);  //compare delay with sleep!
+  delay(5000);
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  esp_deep_sleep_start();
+  printf("will be never printed...\r\n");
+  //printf("wake up ESP again..\r\n");
+  //EPD_2in13_V3_Init();
 }
 
+/* The main loop -------------------------------------------------------------*/
+void loop() {
+  printf("still running looop.....\r\n");
+  delay(1000);
+}
+
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  switch(wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0 : printf("Wakeup caused by external signal using RTC_IO\r\n"); break;
+    case ESP_SLEEP_WAKEUP_EXT1 : printf("Wakeup caused by external signal using RTC_CNTL\r\n"); break;
+    case ESP_SLEEP_WAKEUP_TIMER : printf("Wakeup caused by timer\r\n"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : printf("Wakeup caused by touchpad\r\n"); break;
+    case ESP_SLEEP_WAKEUP_ULP : printf("Wakeup caused by ULP program\r\n"); break;
+    default : printf("Wakeup was not caused by deep sleep: %d\r\n",wakeup_reason); break;
+  }
+}
 
 void initWiFi() {
   WiFi.mode(WIFI_STA);
