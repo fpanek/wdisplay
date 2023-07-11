@@ -30,25 +30,30 @@ char uid [32] = {};
 
 /* Entry point ----------------------------------------------------------------*/
 void setup() {
-  initWiFi();
+  /***initialization***/
+  initializeLittleFS();
   print_wakeup_reason();
   DEV_Module_Init();
   EPD_2in13_V3_Init();
   sprintf(uid, "%012llx" ,ESP.getEfuseMac()); //set unique id 
+  initWiFi();
+  /***initialization***/
 
-  //test
-    getPictureFromServer();
+  /***transfer and display image***/
+  getPictureFromServer();
+  WiFi.disconnect(true); //measure improvement?
+  WiFi.mode(WIFI_OFF);
   clearScreen();
   printPicture();
+  /***transfer and display image***/
+
+  //Send ESP to sleep
   printf("Send ESP to sleep\r\n");
   EPD_2in13_V3_Sleep();
   //delay(10000);  //compare delay with sleep!
-  delay(5000);
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   esp_deep_sleep_start();
   printf("will be never printed...\r\n");
-  //printf("wake up ESP again..\r\n");
-  //EPD_2in13_V3_Init();
 }
 
 /* The main loop -------------------------------------------------------------*/
@@ -179,11 +184,11 @@ void getPictureFromServer() {
         yield();
       }
       printf("[HTTP] connection closed or file end.\n");
+      f.close();
     }
   } else {
     printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
   }
-  f.close();
   http.end();
   yield();
 }
@@ -193,7 +198,12 @@ void clearScreen() {
   EPD_2in13_V3_Clear();
 }
 
-
+void initializeLittleFS(){
+  if(!SPIFFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
+        Serial.println("LITTLEFS Mount Failed");
+        return;
+    }
+}
 
 void printPicture() {
   //Create a new image cache
@@ -201,17 +211,12 @@ void printPicture() {
   UWORD Imagesize = ((EPD_2in13_V3_WIDTH % 8 == 0) ? (EPD_2in13_V3_WIDTH / 8) : (EPD_2in13_V3_WIDTH / 8 + 1)) * EPD_2in13_V3_HEIGHT;
   if ((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) {
     printf("Failed to apply for black memory...\r\n");
-    while (1)
-      ;
-  }
-
-  if (!SPIFFS.begin(FORMAT_LITTLEFS_IF_FAILED)) {
-    Serial.println("LITTLEFS Mount Failed");
-    return;
+    while (1);
   }
   File file = LITTLEFS.open("/picture", FILE_READ);
   file.read(BlackImage, file.size());
   file.close();
+  //Paint_SelectImage(BlackImage);
   Paint_DrawBitMap(BlackImage);  //funktioniert
   EPD_2in13_V3_Display(BlackImage);
 
