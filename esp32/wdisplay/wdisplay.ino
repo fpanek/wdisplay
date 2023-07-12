@@ -11,7 +11,7 @@
 #include "FS.h"
 #include "LITTLEFS.h"  // LittleFS is declared
 #define SPIFFS LITTLEFS
-
+#include <Preferences.h>
 /***** Settings ******/
 const char *ssid = "wdisplay";
 const char *password = "wdisplay";
@@ -31,6 +31,9 @@ bool updateRequired = false;
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  15        /* Time ESP32 will go to sleep (in seconds) */
 
+//http settings
+const char *headerKeys[] = {"checksum"};
+const size_t headerKeysCount = sizeof(headerKeys) / sizeof(headerKeys[0]);
 
 /* Entry point ----------------------------------------------------------------*/
 void setup() {
@@ -57,6 +60,9 @@ void setup() {
   }
 
   /***transfer and display image***/
+
+
+
 
 
   //Send ESP to sleep
@@ -179,11 +185,13 @@ void getPictureFromServer() {
   }
 
   HTTPClient http;
+  http.collectHeaders(headerKeys, headerKeysCount);
   long totalSize = 0;
   boolean chone = 1;
   // configure server and url update based on your URL
   String serverPath = serverIP + "/getpicture" + "?uid=" + uid + "?batteryLevel=" +  String(batteryLevel, 0);
   http.begin(serverPath);
+  http.addHeader("Content-Type", "application/json");
   // start connection and send HTTP header
   long httpCode = http.GET();
 
@@ -195,6 +203,27 @@ void getPictureFromServer() {
       // get lenght of document (is -1 when Server sends no Content-Length header)
       long len = http.getSize();
       printf("HTTP Size is: %ld Bytes\r\n", len);
+      String checksum = http.header("checksum");
+      printf("Checksum of the retrieved file: %s\r\n", checksum.c_str());
+
+      Preferences preferences;
+      preferences.begin("metadata", false); 
+      preferences.putString("checksum-old", preferences.getString("checksum-new", "0")); //save old checksum
+      preferences.putString("checksum-new", checksum.c_str());
+      String checksum_new = preferences.getString("checksum-new", "0");
+      String checksum_old = preferences.getString("checksum-old", "0");
+      printf("new checksum from file: %s\r\n", checksum_new.c_str());
+      printf("old checksum from file: %s\r\n", checksum_old.c_str());
+      preferences.end();
+
+      if(checksum_new.equals(checksum_old)){//do not continue if checksum is equal
+        printf("checksum is equal! - do not continue processing http\r\n");
+        exit;
+      }else{
+        printf("checksum different -> update picture!");
+        updateRequired = true;
+      }
+      
       uint8_t buff[32] = { 0 };                             // create buffer for read
       WiFiClient *stream = http.getStreamPtr();             // get tcp stream
       while (http.connected() && (len > 0 || len == -1)) {  // read all data from server
@@ -210,7 +239,6 @@ void getPictureFromServer() {
         yield();
       }
       printf("[HTTP] connection closed or file end.\n");
-      updateRequired = true;
       f.close();
     }
     else if (httpCode == HTTP_CODE_NO_CONTENT) {
@@ -221,6 +249,9 @@ void getPictureFromServer() {
   }
   printf("HTTP done!\r\n");
   http.end();
+
+
+
   yield();
 }
 
@@ -254,5 +285,7 @@ void printPicture() {
   free(BlackImage);
   //EPD_2in13_V3_Sleep();
   DEV_Delay_ms(2000);  //important, at least 2s
-  printf("close 5V, Module enters 0 power consumption ...\r\n");
+  //printf("close 5V, Module enters 0 power consumption ...\r\n");
 }
+
+
