@@ -26,8 +26,10 @@ float batteryLevel;
 
 String serverIP = "http://10.0.13.23";
 
+bool updateRequired = false; 
+
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  20        /* Time ESP32 will go to sleep (in seconds) */
+#define TIME_TO_SLEEP  15        /* Time ESP32 will go to sleep (in seconds) */
 
 
 /* Entry point ----------------------------------------------------------------*/
@@ -40,17 +42,20 @@ void setup() {
   EPD_2in13_V3_Init();
   sprintf(uid, "%012llx" ,ESP.getEfuseMac()); //set unique id 
   initWiFi();
+  measureBatteryLevel();
+
   /***initialization***/
 
-
-  measureBatteryLevel();
 
   /***transfer and display image***/
   getPictureFromServer();
   WiFi.disconnect(true); //measure improvement?
   WiFi.mode(WIFI_OFF);
-  clearScreen();
-  printPicture();
+  if (updateRequired == true){ //only update screen if new information is available
+    clearScreen();
+    printPicture();
+  }
+
   /***transfer and display image***/
 
 
@@ -106,7 +111,7 @@ void measureBatteryLevel(){
   if(batteryLevel >= 100){
     batteryLevel = 100;
   }
-  printf("currnet battery voltage: %f\r\n", batteryLevel);
+  printf("current battery level: %f\r\n", batteryLevel);
 }
 
 void showFileContent() {
@@ -205,11 +210,16 @@ void getPictureFromServer() {
         yield();
       }
       printf("[HTTP] connection closed or file end.\n");
+      updateRequired = true;
       f.close();
+    }
+    else if (httpCode == HTTP_CODE_NO_CONTENT) {
+      printf("no new content -> no update of display required\r\n");
     }
   } else {
     printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
   }
+  printf("HTTP done!\r\n");
   http.end();
   yield();
 }
