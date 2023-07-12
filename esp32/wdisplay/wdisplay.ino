@@ -189,7 +189,7 @@ void getPictureFromServer() {
   long totalSize = 0;
   boolean chone = 1;
   // configure server and url update based on your URL
-  String serverPath = serverIP + "/getpicture" + "?uid=" + uid + "?batteryLevel=" +  String(batteryLevel, 0);
+  String serverPath = serverIP + "/getpicture" + "?uid=" + uid + "&batteryLevel=" +  String(batteryLevel, 0);
   http.begin(serverPath);
   http.addHeader("Content-Type", "application/json");
   // start connection and send HTTP header
