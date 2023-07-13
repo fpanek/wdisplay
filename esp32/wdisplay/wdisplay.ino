@@ -27,6 +27,8 @@ float batteryLevel;
 String serverIP = "http://10.0.13.23";
 
 bool updateRequired = false; 
+bool displayError = false;
+bool reloadRequired = false;
 
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP  15        /* Time ESP32 will go to sleep (in seconds) */
@@ -38,7 +40,7 @@ const size_t headerKeysCount = sizeof(headerKeys) / sizeof(headerKeys[0]);
 /* Entry point ----------------------------------------------------------------*/
 void setup() {
   /***initialization***/
-  pinMode(GPIO_ADC_Battery, INPUT); //It is necessary to declare the input pin
+  pinMode(GPIO_ADC_Battery, INPUT); 
   initializeLittleFS();
   print_wakeup_reason();
   DEV_Module_Init();
@@ -46,7 +48,7 @@ void setup() {
   sprintf(uid, "%012llx" ,ESP.getEfuseMac()); //set unique id 
   initWiFi();
   measureBatteryLevel();
-
+  reloadVariables();
   /***initialization***/
 
 
@@ -54,14 +56,11 @@ void setup() {
   getPictureFromServer();
   WiFi.disconnect(true); //measure improvement?
   WiFi.mode(WIFI_OFF);
-  if (updateRequired == true){ //only update screen if new information is available
+  if (updateRequired == true || displayError == true || reloadRequired ==true){ //only update screen if new information is available or error during WiFi/HTTP connection 
     clearScreen();
     printPicture();
   }
-
   /***transfer and display image***/
-
-
 
 
 
@@ -200,6 +199,7 @@ void getPictureFromServer() {
     printf("[HTTP] GET... code: %d\n", httpCode);
     // file found at server
     if (httpCode == HTTP_CODE_OK) {
+      displayError = false;
       // get lenght of document (is -1 when Server sends no Content-Length header)
       long len = http.getSize();
       printf("HTTP Size is: %ld Bytes\r\n", len);
@@ -246,6 +246,11 @@ void getPictureFromServer() {
     }
   } else {
     printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    Preferences preferences;
+    preferences.begin("metadata", false); 
+    preferences.putBool("reloadRequired", true); //save old checksum
+    preferences.end();
+    displayError = true;
   }
   printf("HTTP done!\r\n");
   http.end();
@@ -268,6 +273,7 @@ void initializeLittleFS(){
 }
 
 void printPicture() {
+
   //Create a new image cache
   UBYTE *BlackImage;
   UWORD Imagesize = ((EPD_2in13_V3_WIDTH % 8 == 0) ? (EPD_2in13_V3_WIDTH / 8) : (EPD_2in13_V3_WIDTH / 8 + 1)) * EPD_2in13_V3_HEIGHT;
@@ -275,13 +281,22 @@ void printPicture() {
     printf("Failed to apply for black memory...\r\n");
     while (1);
   }
-  File file = LITTLEFS.open("/picture", FILE_READ);
-  file.read(BlackImage, file.size());
-  file.close();
-  //Paint_SelectImage(BlackImage);
-  Paint_DrawBitMap(BlackImage);  //funktioniert
-  EPD_2in13_V3_Display(BlackImage);
-
+  Paint_SelectImage(BlackImage);
+  if(displayError == false){
+      File file = LITTLEFS.open("/picture", FILE_READ);
+      file.read(BlackImage, file.size());
+      file.close();
+      Paint_DrawBitMap(BlackImage);  
+      EPD_2in13_V3_Display(BlackImage);
+      resetReload();
+  }else{
+    printf("Show error on display!\r\n");
+    Paint_NewImage(BlackImage, EPD_2in13_V3_WIDTH, EPD_2in13_V3_HEIGHT, 90, WHITE);
+    Paint_Clear(WHITE);
+    Paint_DrawString_EN(10, 50, "ERROR during", &Font16, BLACK, WHITE);
+    Paint_DrawString_EN(10, 66, "connection...", &Font16, BLACK, WHITE);
+    EPD_2in13_V3_Display_Base(BlackImage);
+  }
   free(BlackImage);
   //EPD_2in13_V3_Sleep();
   DEV_Delay_ms(2000);  //important, at least 2s
@@ -289,3 +304,16 @@ void printPicture() {
 }
 
 
+void reloadVariables(){
+  Preferences preferences;
+  preferences.begin("metadata", false); 
+  reloadRequired = preferences.getBool("reloadRequired", true); 
+  preferences.end();
+}
+
+void resetReload(){
+    Preferences preferences;
+    preferences.begin("metadata", false); 
+    preferences.putBool("reloadRequired", false); //save old checksum
+    preferences.end();
+}
